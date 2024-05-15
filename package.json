@@ -1,0 +1,12 @@
+{
+  "name": "css-to-kotlin-xml",
+  "version": "1.0.0",
+  "description": "```\r npm run convert -- \"sample.css\" \"styles.xml\"\r ```",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "convert": "node index.js"
+  },
+  "author": "",
+  "license": "ISC"
+}
