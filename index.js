@@ -1,5 +1,27 @@
 const fs = require('fs');
 
+function isClass(line) {
+    return line.trim().startsWith('.');
+}
+
+function isHtmlTag(line) {
+    return line.includes('{');
+}
+
+function isStyle(line) {
+    return line.includes(':');
+}
+
+function capitalizeFirstLetter(string) {
+    return string.charAt(0).toUpperCase() + string.slice(1);
+}
+
+function ensureExists(object, property) {
+    if (!object[property]) {
+        object[property] = {};
+    }
+}
+
 // Function to convert CSS class selector to Android style XML
 function convertCSStoXML(cssFilePath) {
     const styles = {};
@@ -8,13 +30,18 @@ function convertCSStoXML(cssFilePath) {
     let currentClassName = '';
 
     lines.forEach(line => {
-        if (line.trim().startsWith('.')) {
+        if (isClass(line)) {
             currentClassName = line.split('{')[0].trim().substring(1);
-            styles[currentClassName] = {};
-        } else if (line.includes(':')) {
+            ensureExists(styles, currentClassName);
+        }
+        else if (isHtmlTag(line)) {
+            currentClassName = capitalizeFirstLetter(line.split('{')[0].trim());
+            ensureExists(styles, currentClassName);
+        }
+        else if (isStyle(line)) {
             const [property, value] = line.split(':').map(item => item.trim());
             if (currentClassName && property && value) {
-                styles[currentClassName][property] = value;
+                styles[currentClassName][property] = value.slice(0, -1);
             }
         }
     });
@@ -41,9 +68,9 @@ function convertCSStoXML(cssFilePath) {
 function convertCSSPropertyToAndroid(property, value) {
     switch (property) {
         case 'color':
-            return `<item name="android:textColor">${value}</item>`;
+            return `<item name="android:textColor">${value.toUpperCase()}</item>`;
         case 'font-size':
-            return `<item name="android:textSize">${value}</item>`;
+            return `<item name="android:textSize">${value.replace("px", "sp")}</item>`;
         case 'font-family':
             return `<item name="android:fontFamily">${value}</item>`;
         case 'background-color':
