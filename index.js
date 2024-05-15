@@ -75,6 +75,16 @@ function convertCSSPropertyToAndroid(property, value) {
             return `<item name="android:fontFamily">${value}</item>`;
         case 'background-color':
             return `<item name="android:background">${value}</item>`;
+        case 'text-decoration':
+            const supportedTextDecorations = {
+                "underline": "Underline",
+                "line-through": "LineThrough",
+            };
+            const supportedValue = supportedTextDecorations[value];
+            if (supportedValue) {
+                return `<item name="android:textDecoration">${supportedValue}</item>`;
+            }
+            break;
         // Add more cases for other CSS properties you want to support
         default:
             return null;
