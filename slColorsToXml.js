@@ -17,7 +17,7 @@ function convertCSStoXML(cssFilePath) {
     // Generate Android colors XML
     let xml = '<?xml version="1.0" encoding="utf-8"?>\n<resources>\n';
     Object.keys(customProperties).forEach(propertyName => {
-        xml += `\t<color name="${propertyName}">${customProperties[propertyName].toUpperCase()}</color>\n`;
+        xml += `\t<color name="${propertyName.replaceAll("-", "_")}">${customProperties[propertyName].toUpperCase()}</color>\n`;
     });
     xml += '</resources>';
 

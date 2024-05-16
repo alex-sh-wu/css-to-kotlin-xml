@@ -49,6 +49,9 @@ function convertCSStoXML(cssFilePath) {
     // Generate Android styles XML
     let xml = '<resources>\n';
     Object.keys(styles).forEach(className => {
+        if (className.includes(':')) {
+            return; // ignore css styles for states e.g. :hover
+        }
         xml += `\t<style name="${className}">\n`;
         Object.keys(styles[className]).forEach(property => {
             const value = styles[className][property];
@@ -71,6 +74,8 @@ function convertCSSPropertyToAndroid(property, value) {
             return `<item name="android:textColor">${value.toUpperCase()}</item>`;
         case 'font-size':
             return `<item name="android:textSize">${value.replace("px", "sp")}</item>`;
+        case 'font-weight':
+            return `<item name="android:textStyle">${value}</item>`;
         case 'font-family':
             return `<item name="android:fontFamily">${value}</item>`;
         case 'background-color':
@@ -85,6 +90,8 @@ function convertCSSPropertyToAndroid(property, value) {
                 return `<item name="android:textDecoration">${supportedValue}</item>`;
             }
             break;
+        case 'padding':
+            return `<item name="android:padding">${value.replace("px", "sp")}</item>`;
         // Add more cases for other CSS properties you want to support
         default:
             return null;

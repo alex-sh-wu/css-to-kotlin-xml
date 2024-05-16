@@ -1,0 +1,22 @@
+.signinHeader {
+    color: #000000;
+    font-size: 30px;
+    font-weight: bold;
+}
+
+.box {
+    background-color: #E6EFEF;
+    padding: 20px;
+}
+
+.boxHeader {
+    color: #808080;
+    font-size: 20px;
+    font-weight: bold;
+}
+
+.signinButton {
+    color: #FFFFFF;
+    background-color: #184A58;
+    font-weight: bold;
+}
