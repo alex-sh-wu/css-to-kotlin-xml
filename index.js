@@ -1,5 +1,8 @@
 const fs = require('fs');
 
+const BASE_FONT_SIZE = 16; // px
+const ROOT_FONT_SIZE = 12; // px
+
 function isClass(line) {
     return line.trim().startsWith('.');
 }
@@ -30,14 +33,36 @@ function removePx(string) {
     return string.replace("px", "");
 }
 
+function removeRem(string) {
+    return string.replace("rem", "");
+}
+
+function removeEm(string) {
+    return string.replace('em', "");
+}
+
 // Convert em to pixels
 function emToPixels(emValue, baseFontSize) {
-    return emValue * baseFontSize;
+    return Math.round(emValue * baseFontSize);
 }
 
 // Convert rem to pixels
 function remToPixels(remValue, rootFontSize) {
-    return remValue * rootFontSize;
+    return Math.round(remValue * rootFontSize);
+}
+
+function convertUnits(string) {
+    if (string === 'auto') return 0;
+    if (string.includes('px')) {
+        return parseInt(removePx(string));
+    }
+    else if (string.includes('rem')) {
+        return remToPixels(parseFloat(removeRem(string)), ROOT_FONT_SIZE);
+    }
+    else if (string.includes('em')) {
+        return emToPixels(parseFloat(removeEm(string)), BASE_FONT_SIZE);
+    }
+    return parseInt(string);
 }
 
 // Function to convert CSS class selector to Android style XML
@@ -102,7 +127,7 @@ function convertCSSPropertyToAndroid(property, value) {
         case 'color':
             return `<item name="android:textColor">${value.toUpperCase()}</item>`;
         case 'font-size':
-            return `<item name="android:textSize">${removePx(value)}sp</item>`;
+            return `<item name="android:textSize">${convertUnits(value)}sp</item>`;
         case 'font-weight':
             return `<item name="android:textStyle">${value}</item>`;
         case 'font-family':
@@ -127,35 +152,35 @@ function convertCSSPropertyToAndroid(property, value) {
             };
             const arguments = value.split(" ");
             if (arguments.length === 1) {
-                return `<item name="android:${propertyMap[property]}">${removePx(value)}sp</item>`;
+                return `<item name="android:${propertyMap[property]}">${convertUnits(value)}sp</item>`;
             }
             else if (arguments.length === 2) {
-                return `<item name="android:${propertyMap[property]}Top">${removePx(arguments[0])}sp</item><item name="android:${propertyMap[property]}Right">${removePx(arguments[1])}sp</item><item name="android:${propertyMap[property]}Bottom">${removePx(arguments[0])}sp</item><item name="android:${propertyMap[property]}Left">${removePx(arguments[1])}sp</item>`;
+                return `<item name="android:${propertyMap[property]}Top">${convertUnits(arguments[0])}sp</item><item name="android:${propertyMap[property]}Right">${convertUnits(arguments[1])}sp</item><item name="android:${propertyMap[property]}Bottom">${convertUnits(arguments[0])}sp</item><item name="android:${propertyMap[property]}Left">${convertUnits(arguments[1])}sp</item>`;
             }
             else if (arguments.length === 3) {
-                return `<item name="android:${propertyMap[property]}Top">${removePx(arguments[0])}sp</item><item name="android:${propertyMap[property]}Right">${removePx(arguments[1])}sp</item><item name="android:${propertyMap[property]}Bottom">${removePx(arguments[2])}sp</item><item name="android:${propertyMap[property]}Left">${removePx(arguments[1])}sp</item>`;
+                return `<item name="android:${propertyMap[property]}Top">${convertUnits(arguments[0])}sp</item><item name="android:${propertyMap[property]}Right">${convertUnits(arguments[1])}sp</item><item name="android:${propertyMap[property]}Bottom">${convertUnits(arguments[2])}sp</item><item name="android:${propertyMap[property]}Left">${convertUnits(arguments[1])}sp</item>`;
             }
             else if (arguments.length === 4) {
-                return `<item name="android:${propertyMap[property]}Top">${removePx(arguments[0])}sp</item><item name="android:${propertyMap[property]}Right">${removePx(arguments[1])}sp</item><item name="android:${propertyMap[property]}Bottom">${removePx(arguments[2])}sp</item><item name="android:${propertyMap[property]}Left">${removePx(arguments[3])}sp</item>`;
+                return `<item name="android:${propertyMap[property]}Top">${convertUnits(arguments[0])}sp</item><item name="android:${propertyMap[property]}Right">${convertUnits(arguments[1])}sp</item><item name="android:${propertyMap[property]}Bottom">${convertUnits(arguments[2])}sp</item><item name="android:${propertyMap[property]}Left">${convertUnits(arguments[3])}sp</item>`;
             }
             break;
         case 'padding-left':
         case 'padding-top':
         case 'padding-bottom':
         case 'padding-right':
-            return `<item name="android:${camelize(property)}">${removePx(value)}sp</item>`;
+            return `<item name="android:${camelize(property)}">${convertUnits(value)}sp</item>`;
         case 'margin-left':
         case 'margin-top':
         case 'margin-bottom':
         case 'margin-right':
-            return `<item name="android:layout_${camelize(property)}">${removePx(value)}sp</item>`;
+            return `<item name="android:layout_${camelize(property)}">${convertUnits(value)}sp</item>`;
         case 'width':
             if (value.includes('%')) {
                 const widthInPercent = value.replace('%', '');
                 const roundedWidth = Math.round(parseInt(widthInPercent));
                 return `<item name="android:layout_width">0dp</item>\n\t\t<item name="android:layout_weight">.${roundedWidth}</item>`;
             }
-            return `<item name="android:layout_width">${removePx(value)}dp</item>`;
+            return `<item name="android:layout_width">${convertUnits(value)}dp</item>`;
         // Add more cases for other CSS properties you want to support
         default:
             return null;
