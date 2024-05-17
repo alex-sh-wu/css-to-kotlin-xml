@@ -5,7 +5,7 @@ function isClass(line) {
 }
 
 function isHtmlTag(line) {
-    return line.includes('{');
+    return line.includes('{') && !line.includes('[');
 }
 
 function isStyle(line) {
@@ -28,6 +28,16 @@ function camelize(string) {
 
 function removePx(string) {
     return string.replace("px", "");
+}
+
+// Convert em to pixels
+function emToPixels(emValue, baseFontSize) {
+    return emValue * baseFontSize;
+}
+
+// Convert rem to pixels
+function remToPixels(remValue, rootFontSize) {
+    return remValue * rootFontSize;
 }
 
 // Function to convert CSS class selector to Android style XML
@@ -57,15 +67,25 @@ function convertCSStoXML(cssFilePath) {
     // Generate Android styles XML
     let xml = '<resources>\n';
     Object.keys(styles).forEach(className => {
-        if (className.includes(':')) {
+        if ([':', ',', '>'].find((character) => className.includes(character))) {
             return; // ignore css styles for states e.g. :hover
         }
-        xml += `\t<style name="${className}">\n`;
+        xml += `\t<style name="${className.replaceAll("-", "_")}">\n`;
         Object.keys(styles[className]).forEach(property => {
-            const value = styles[className.replaceAll("-", "_")][property];
+            let value = styles[className][property];
+            const shouldCommentOut = value.includes("var(--") || value.includes("auto");
+            if (shouldCommentOut) {
+                value = value.replaceAll("var(--", "");
+            }
             const androidAttribute = convertCSSPropertyToAndroid(property, value);
             if (androidAttribute) {
+                if (shouldCommentOut) {
+                    xml += '<!--';
+                }
                 xml += `\t\t${androidAttribute}\n`;
+                if (shouldCommentOut) {
+                    xml += '-->';
+                }
             }
         });
         xml += '\t</style>\n';
@@ -77,6 +97,7 @@ function convertCSStoXML(cssFilePath) {
 
 // Function to convert CSS property to Android style attribute
 function convertCSSPropertyToAndroid(property, value) {
+    value = value.replaceAll(" !important", "");
     switch (property) {
         case 'color':
             return `<item name="android:textColor">${value.toUpperCase()}</item>`;
@@ -99,27 +120,23 @@ function convertCSSPropertyToAndroid(property, value) {
             }
             break;
         case 'padding':
+        case 'margin':
+            const propertyMap = {
+                'padding': 'padding',
+                'margin': 'layout_margin'
+            };
             const arguments = value.split(" ");
             if (arguments.length === 1) {
-                return `<item name="android:padding">${removePx(value)}sp</item>`;
+                return `<item name="android:${propertyMap[property]}">${removePx(value)}sp</item>`;
             }
             else if (arguments.length === 2) {
-                return `<item name="android:paddingTop">${removePx(arguments[0])}sp</item>\n
-                \t\t<item name="android:paddingRight">${removePx(arguments[1])}sp</item>\n
-                \t\t<item name="android:paddingBottom">${removePx(arguments[0])}sp</item>\n
-                \t\t<item name="android:paddingLeft">${removePx(arguments[1])}sp</item>`;
+                return `<item name="android:${propertyMap[property]}Top">${removePx(arguments[0])}sp</item><item name="android:${propertyMap[property]}Right">${removePx(arguments[1])}sp</item><item name="android:${propertyMap[property]}Bottom">${removePx(arguments[0])}sp</item><item name="android:${propertyMap[property]}Left">${removePx(arguments[1])}sp</item>`;
             }
             else if (arguments.length === 3) {
-                return `<item name="android:paddingTop">${removePx(arguments[0])}sp</item>\n
-                \t\t<item name="android:paddingRight">${removePx(arguments[1])}sp</item>\n
-                \t\t<item name="android:paddingBottom">${removePx(arguments[2])}sp</item>\n
-                \t\t<item name="android:paddingLeft">${removePx(arguments[1])}sp</item>`;
+                return `<item name="android:${propertyMap[property]}Top">${removePx(arguments[0])}sp</item><item name="android:${propertyMap[property]}Right">${removePx(arguments[1])}sp</item><item name="android:${propertyMap[property]}Bottom">${removePx(arguments[2])}sp</item><item name="android:${propertyMap[property]}Left">${removePx(arguments[1])}sp</item>`;
             }
             else if (arguments.length === 4) {
-                return `<item name="android:paddingTop">${removePx(arguments[0])}sp</item>\n
-                \t\t<item name="android:paddingRight">${removePx(arguments[1])}sp</item>\n
-                \t\t<item name="android:paddingBottom">${removePx(arguments[2])}sp</item>\n
-                \t\t<item name="android:paddingLeft">${removePx(arguments[3])}sp</item>`;
+                return `<item name="android:${propertyMap[property]}Top">${removePx(arguments[0])}sp</item><item name="android:${propertyMap[property]}Right">${removePx(arguments[1])}sp</item><item name="android:${propertyMap[property]}Bottom">${removePx(arguments[2])}sp</item><item name="android:${propertyMap[property]}Left">${removePx(arguments[3])}sp</item>`;
             }
             break;
         case 'padding-left':
@@ -127,6 +144,11 @@ function convertCSSPropertyToAndroid(property, value) {
         case 'padding-bottom':
         case 'padding-right':
             return `<item name="android:${camelize(property)}">${removePx(value)}sp</item>`;
+        case 'margin-left':
+        case 'margin-top':
+        case 'margin-bottom':
+        case 'margin-right':
+            return `<item name="android:layout_${camelize(property)}">${removePx(value)}sp</item>`;
         case 'width':
             if (value.includes('%')) {
                 const widthInPercent = value.replace('%', '');
