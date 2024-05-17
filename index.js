@@ -54,7 +54,7 @@ function convertCSStoXML(cssFilePath) {
         }
         xml += `\t<style name="${className}">\n`;
         Object.keys(styles[className]).forEach(property => {
-            const value = styles[className][property];
+            const value = styles[className.replaceAll("-", "_")][property];
             const androidAttribute = convertCSSPropertyToAndroid(property, value);
             if (androidAttribute) {
                 xml += `\t\t${androidAttribute}\n`;
