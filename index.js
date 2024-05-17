@@ -22,6 +22,14 @@ function ensureExists(object, property) {
     }
 }
 
+function camelize(string) {
+    return string.replace(/-./g, x=>x[1].toUpperCase());
+}
+
+function removePx(string) {
+    return string.replace("px", "");
+}
+
 // Function to convert CSS class selector to Android style XML
 function convertCSStoXML(cssFilePath) {
     const styles = {};
@@ -73,7 +81,7 @@ function convertCSSPropertyToAndroid(property, value) {
         case 'color':
             return `<item name="android:textColor">${value.toUpperCase()}</item>`;
         case 'font-size':
-            return `<item name="android:textSize">${value.replace("px", "sp")}</item>`;
+            return `<item name="android:textSize">${removePx(value)}sp</item>`;
         case 'font-weight':
             return `<item name="android:textStyle">${value}</item>`;
         case 'font-family':
@@ -91,7 +99,41 @@ function convertCSSPropertyToAndroid(property, value) {
             }
             break;
         case 'padding':
-            return `<item name="android:padding">${value.replace("px", "sp")}</item>`;
+            const arguments = value.split(" ");
+            if (arguments.length === 1) {
+                return `<item name="android:padding">${removePx(value)}sp</item>`;
+            }
+            else if (arguments.length === 2) {
+                return `<item name="android:paddingTop">${removePx(arguments[0])}sp</item>\n
+                \t\t<item name="android:paddingRight">${removePx(arguments[1])}sp</item>\n
+                \t\t<item name="android:paddingBottom">${removePx(arguments[0])}sp</item>\n
+                \t\t<item name="android:paddingLeft">${removePx(arguments[1])}sp</item>`;
+            }
+            else if (arguments.length === 3) {
+                return `<item name="android:paddingTop">${removePx(arguments[0])}sp</item>\n
+                \t\t<item name="android:paddingRight">${removePx(arguments[1])}sp</item>\n
+                \t\t<item name="android:paddingBottom">${removePx(arguments[2])}sp</item>\n
+                \t\t<item name="android:paddingLeft">${removePx(arguments[1])}sp</item>`;
+            }
+            else if (arguments.length === 4) {
+                return `<item name="android:paddingTop">${removePx(arguments[0])}sp</item>\n
+                \t\t<item name="android:paddingRight">${removePx(arguments[1])}sp</item>\n
+                \t\t<item name="android:paddingBottom">${removePx(arguments[2])}sp</item>\n
+                \t\t<item name="android:paddingLeft">${removePx(arguments[3])}sp</item>`;
+            }
+            break;
+        case 'padding-left':
+        case 'padding-top':
+        case 'padding-bottom':
+        case 'padding-right':
+            return `<item name="android:${camelize(property)}">${removePx(value)}sp</item>`;
+        case 'width':
+            if (value.includes('%')) {
+                const widthInPercent = value.replace('%', '');
+                const roundedWidth = Math.round(parseInt(widthInPercent));
+                return `<item name="android:layout_width">0dp</item>\n\t\t<item name="android:layout_weight">.${roundedWidth}</item>`;
+            }
+            return `<item name="android:layout_width">${removePx(value)}dp</item>`;
         // Add more cases for other CSS properties you want to support
         default:
             return null;
