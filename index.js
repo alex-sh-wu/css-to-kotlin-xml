@@ -28,9 +28,21 @@ function camelize(string) {
     return string.replace(/-./g, x=>x[1].toUpperCase());
 }
 
-function replaceCssVariables(string) {
-    // TODO
-    return string;
+function replaceCssVariables(cssVariables, string) {
+    if (!string) {
+        return "";
+    }
+    if (!string.includes("var(")) {
+        return string;
+    }
+    const arguments = string.split(" ");
+    return arguments.map((argument) => {
+        if (argument.startsWith("var(")) {
+            const key = argument.replace("var(", "").replace(")", "");
+            return replaceCssVariables(cssVariables, cssVariables[key]);
+        }
+        return argument;
+    }).join(" ");
 }
 
 function removePx(string) {
@@ -73,19 +85,28 @@ function convertCSStoXML(cssFilePath) {
     const cssContent = fs.readFileSync(cssFilePath, 'utf-8');
     const parsedCSS = css.parse(cssContent);
 
+    const cssVariables = {};
     const styles = new Map();
+
     parsedCSS.stylesheet.rules.forEach((rule) => {
         if (rule.type === 'rule') {
             rule.selectors.forEach((selector) => {
                 const androidStyle = convertSelectorToAndroidStyle(selector);
                 if (androidStyle) {
                     rule.declarations.forEach((declaration) => {
-                        if (declaration.value.includes('auto') || declaration.value.includes('calc') || declaration.value.includes('inherit')) {
+                        if (declaration.property.startsWith('--')) {
+                            if (declaration.value.startsWith('var(')) {
+                                cssVariables[declaration.property] = replaceCssVariables(cssVariables, declaration.value);
+                            }
+                            cssVariables[declaration.property] = declaration.value;
+                            return;
+                        }
+                        else if (declaration.value.includes('auto') || declaration.value.includes('calc') || declaration.value.includes('inherit')) {
                             console.log("Skipped rule", declaration.property, declaration.value);
                             return;
                         }
                         
-                        const androidProperty = convertCSSPropertyToAndroid(declaration.property, replaceCssVariables(declaration.value));
+                        const androidProperty = convertCSSPropertyToAndroid(declaration.property, replaceCssVariables(cssVariables, declaration.value));
                         if (androidProperty) {
                             if (!styles.has(androidStyle)) {
                                 styles.set(androidStyle, []);
@@ -97,7 +118,6 @@ function convertCSStoXML(cssFilePath) {
             });
         }
     });
-
     const xmlContent = generateStylesXML(styles);
     return xmlContent;
 }
@@ -109,6 +129,9 @@ function convertSelectorToAndroidStyle(selector) {
             return selector.substring(1);
         }
         return capitalizeFirstLetter(selector);
+    }
+    else if (selector === ':root') {
+        return selector;
     }
     console.log("Skipped selector", selector);
     return null;
