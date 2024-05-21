@@ -1,32 +1,36 @@
 const fs = require('fs');
+const css = require('css');
 
 const BASE_FONT_SIZE = 16; // px
 const ROOT_FONT_SIZE = 12; // px
 
 function isClass(line) {
-    return line.trim().startsWith('.');
+    return line.startsWith('.');
 }
 
-function isHtmlTag(line) {
-    return line.includes('{') && !line.includes('[');
+function hasCombinators(line) {
+    return line.includes('+') || line.includes('>') || line.includes(' ');
 }
 
-function isStyle(line) {
+function hasPseudoClassesOrPseudoElements(line) {
     return line.includes(':');
+}
+
+function hasAttributeSelectors(line) {
+    return line.includes('[');
 }
 
 function capitalizeFirstLetter(string) {
     return string.charAt(0).toUpperCase() + string.slice(1);
 }
 
-function ensureExists(object, property) {
-    if (!object[property]) {
-        object[property] = {};
-    }
-}
-
 function camelize(string) {
     return string.replace(/-./g, x=>x[1].toUpperCase());
+}
+
+function replaceCssVariables(string) {
+    // TODO
+    return string;
 }
 
 function removePx(string) {
@@ -52,7 +56,6 @@ function remToPixels(remValue, rootFontSize) {
 }
 
 function convertUnits(string) {
-    if (string === 'auto') return 0;
     if (string.includes('px')) {
         return parseInt(removePx(string));
     }
@@ -67,57 +70,71 @@ function convertUnits(string) {
 
 // Function to convert CSS class selector to Android style XML
 function convertCSStoXML(cssFilePath) {
-    const styles = {};
     const cssContent = fs.readFileSync(cssFilePath, 'utf-8');
-    const lines = cssContent.split('\n');
-    let currentClassName = '';
+    const parsedCSS = css.parse(cssContent);
 
-    lines.forEach(line => {
-        if (isClass(line)) {
-            currentClassName = line.split('{')[0].trim().substring(1);
-            ensureExists(styles, currentClassName);
-        }
-        else if (isHtmlTag(line)) {
-            currentClassName = capitalizeFirstLetter(line.split('{')[0].trim());
-            ensureExists(styles, currentClassName);
-        }
-        else if (isStyle(line)) {
-            const [property, value] = line.split(':').map(item => item.trim());
-            if (currentClassName && property && value) {
-                styles[currentClassName][property] = value.slice(0, -1);
-            }
+    const styles = new Map();
+    parsedCSS.stylesheet.rules.forEach((rule) => {
+        if (rule.type === 'rule') {
+            rule.selectors.forEach((selector) => {
+                const androidStyle = convertSelectorToAndroidStyle(selector);
+                if (androidStyle) {
+                    rule.declarations.forEach((declaration) => {
+                        if (declaration.value.includes('auto') || declaration.value.includes('calc') || declaration.value.includes('inherit')) {
+                            console.log("Skipped rule", declaration.property, declaration.value);
+                            return;
+                        }
+                        
+                        const androidProperty = convertCSSPropertyToAndroid(declaration.property, replaceCssVariables(declaration.value));
+                        if (androidProperty) {
+                            if (!styles.has(androidStyle)) {
+                                styles.set(androidStyle, []);
+                            }
+                            styles.get(androidStyle).push(androidProperty);
+                        }
+                    });
+                }
+            });
         }
     });
 
-    // Generate Android styles XML
-    let xml = '<resources>\n';
-    Object.keys(styles).forEach(className => {
-        if ([':', ',', '>'].find((character) => className.includes(character))) {
-            return; // ignore css styles for states e.g. :hover
+    const xmlContent = generateStylesXML(styles);
+    return xmlContent;
+}
+
+function convertSelectorToAndroidStyle(selector) {
+    // Convert CSS selector to Android style name
+    if (!hasAttributeSelectors(selector) && !hasCombinators(selector) && !hasPseudoClassesOrPseudoElements(selector)) {
+        if (isClass(selector)) {
+            return selector.substring(1);
         }
-        xml += `\t<style name="${className.replaceAll("-", "_")}">\n`;
-        Object.keys(styles[className]).forEach(property => {
-            let value = styles[className][property];
-            const shouldCommentOut = value.includes("var(--") || value.includes("auto");
+        return capitalizeFirstLetter(selector);
+    }
+    console.log("Skipped selector", selector);
+    return null;
+}
+
+function generateStylesXML(styles) {
+    let xmlContent = '<resources>\n';
+
+    styles.forEach((properties, styleName) => {
+        xmlContent += `\t<style name="${camelize(styleName)}">\n`;
+        properties.forEach(property => {
+            const shouldCommentOut = property.toLowerCase().includes("var(--");
             if (shouldCommentOut) {
-                value = value.replaceAll("var(--", "");
+                xmlContent += '<!--';
+                property = property.replaceAll("--", "");
             }
-            const androidAttribute = convertCSSPropertyToAndroid(property, value);
-            if (androidAttribute) {
-                if (shouldCommentOut) {
-                    xml += '<!--';
-                }
-                xml += `\t\t${androidAttribute}\n`;
-                if (shouldCommentOut) {
-                    xml += '-->';
-                }
+            xmlContent += `\t\t${property}\n`;
+            if (shouldCommentOut) {
+                xmlContent += '-->';
             }
         });
-        xml += '\t</style>\n';
+        xmlContent += '\t</style>\n';
     });
-    xml += '</resources>';
 
-    return xml;
+    xmlContent += '</resources>';
+    return xmlContent;
 }
 
 // Function to convert CSS property to Android style attribute
