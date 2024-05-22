@@ -37,12 +37,28 @@ function replaceCssVariables(cssVariables, string) {
     }
     const arguments = string.split(" ");
     return arguments.map((argument) => {
-        if (argument.startsWith("var(")) {
-            const key = argument.replace("var(", "").replace(")", "");
-            return replaceCssVariables(cssVariables, cssVariables[key]);
+        if (argument.includes("var(")) {
+            const extractedVariables = extractCssVariables(argument);
+            let result = argument.replace("var(", "").replace(")", "");
+            extractedVariables.forEach((variable) => {
+                result = result.replace(variable, cssVariables[variable]);
+            })
+            return replaceCssVariables(cssVariables, result);
         }
         return argument;
     }).join(" ");
+}
+
+function extractCssVariables(inputString) {
+    const regex = /var\((--[^)]+)\)/g;
+    let match;
+    const variables = [];
+
+    while ((match = regex.exec(inputString)) !== null) {
+        variables.push(match[1]);
+    }
+
+    return variables;
 }
 
 function removePx(string) {
@@ -163,6 +179,7 @@ function generateStylesXML(styles) {
 // Function to convert CSS property to Android style attribute
 function convertCSSPropertyToAndroid(property, value) {
     value = value.replaceAll(" !important", "");
+    value = convertColorToAndroid(value);
     switch (property) {
         case 'color':
             return `<item name="android:textColor">${value.toUpperCase()}</item>`;
@@ -173,7 +190,7 @@ function convertCSSPropertyToAndroid(property, value) {
         case 'font-family':
             return `<item name="android:fontFamily">${value}</item>`;
         case 'background-color':
-            return `<item name="android:background">${value}</item>`;
+            return `<item name="android:background">${value.toUpperCase()}</item>`;
         case 'text-decoration':
             const supportedTextDecorations = {
                 "underline": "Underline",
@@ -225,6 +242,20 @@ function convertCSSPropertyToAndroid(property, value) {
         default:
             return null;
     }
+}
+
+function convertColorToAndroid(value) {
+    // Regex to match rgba(r, g, b, a)
+    const rgbaMatch = value.match(/^rgba?\(\s*(\d+),\s*(\d+),\s*(\d+)(?:,\s*(\d*(?:\.\d+)?))?\s*\)$/);
+    if (rgbaMatch) {
+        let [_, r, g, b, a = 1] = rgbaMatch;
+        r = parseInt(r).toString(16).padStart(2, '0');
+        g = parseInt(g).toString(16).padStart(2, '0');
+        b = parseInt(b).toString(16).padStart(2, '0');
+        a = Math.round(parseFloat(a) * 255).toString(16).padStart(2, '0');
+        return `#${a}${r}${g}${b}`;
+    }
+    return value;  // return original value if not rgba
 }
 
 // Main function
